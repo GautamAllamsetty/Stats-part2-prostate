@@ -113,14 +113,35 @@ pairs(prostate[, 2:8])
 
 # Q.2 Generate your best linear regression model using only linear effects. Are there any indications that assumptions
 #     underlying inferences with the model are violated? Evaluate the effect of any influential point, or outlier.
+# Full model to check for outlier:
+lm_model <- lm(Cscore ~., data = prostate)
+summary(lm_model)
+# Only lpsa is significant.
 
-# Do we need to create training and test dataset for the model with only linear effects to calculate test MSE.
+par(mfrow =c(2 ,2))
+plot(lm_model)
+plot( predict (lm_model), residuals (lm_model))
+plot( predict (lm_model), rstudent (lm_model)) # Observations whose studentized residuals are greater than 3 in absolute value are possible outliers.
+# plot to find high leverage points.
+plot( hatvalues (lm_model))
+
+# Conclusion - From the residual plot, observation number 96 is an outlier. So we removed it 
+# and then do the variable selection.
+# Removing the outlier:
+prostate.less <- prostate[-96,]
+prostate.less$svi<-as.factor(prostate.less$svi)
+lm_model_less <- lm(Cscore ~.,data = prostate.less)
+summary(lm_model_less)
+# Conclusion - Now lcp and lpsa both are significant.
+
+
 # Best subset selection:
 library(ISLR)
-dim(prostate)
+dim(prostate.less)
 library(leaps)
-regfit.full = regsubsets (Cscore~., prostate)
-reg.summary=summary (regfit.full)
+regfit.full = regsubsets (Cscore~.,data=prostate.less)
+reg.summary=summary(regfit.full)
+reg.summary
 names(reg.summary)
 
 par (mfrow =c(2 ,2))
@@ -133,8 +154,8 @@ which.max(reg.summary$adjr2) # 5 Variables
 plot(reg.summary$cp ,xlab =" Number of Variables ", ylab =" Cp",
      type='l')
 
-which.min(reg.summary$cp ) # 5 Variables
-points (5, reg.summary$cp [5] , col =" red ", cex =2, pch =20)
+which.min(reg.summary$cp) # 4 Variables
+points (4, reg.summary$cp[4], col =" red ", cex =2, pch =20)
 
 which.min (reg.summary$bic ) # 2 variables
 plot(reg.summary$bic , xlab =" Number of Variables ", ylab =" BIC ",
@@ -145,40 +166,40 @@ plot(regfit.full,scale ="r2")
 plot(regfit.full,scale="adjr2")
 plot(regfit.full,scale="Cp")
 plot(regfit.full,scale="bic")
-coef(regfit.full,5) # How many variables to take?????? a/c to Cp and adjr2 variable number is 5 and a/c to bic 2.
-
+coef(regfit.full,2) # How many variables to take?????? a/c to Cp and adjr2 variable number is 5 and 4 and a/c to bic 2.
+                    # selected number of variables according to bic
 # Forward selection method:
-regfit.fwd =regsubsets(Cscore~., data= prostate,method ="forward")
-summary (regfit.fwd)
+regfit.fwd =regsubsets(Cscore~., data= prostate.less,method ="forward")
+summary(regfit.fwd)
 plot(regfit.fwd,scale ="r2")
 plot(regfit.fwd,scale="adjr2")
 plot(regfit.fwd,scale="Cp")
 plot(regfit.fwd,scale="bic")
+coef(regfit.fwd,2) # selected number of variables according to bic
 
 # Backward selection method:
-regfit.bwd=regsubsets (Cscore~., data= prostate,method ="backward")
+regfit.bwd=regsubsets (Cscore~., data= prostate.less,method ="backward")
 summary(regfit.bwd)
 plot(regfit.bwd,scale ="r2")
 plot(regfit.bwd,scale="adjr2")
 plot(regfit.bwd,scale="Cp")
 plot(regfit.bwd,scale="bic")
+coef(regfit.bwd,2) # selected number of variables according to bic
 
-# Conclusion - From all selection methods used here, 5 variables( a/c to adjr2 and Cp)
-# are important (age and lbph are not useful). A/c to bic, in all selection methods, only 2 variables 
-# are important (in case of backward -lcp and lpsa, incase of forward- svi and lpsa and incase of best subset- svi and lpsa)
 
-# Cross-validation:
+# Cross-validation: 
 set.seed (1)
-train = sample (c(TRUE , FALSE ), nrow( prostate),rep =TRUE )
+train=sample (c(TRUE , FALSE ), nrow(prostate.less),rep =TRUE )
 test =(! train )
 
-regfit.best = regsubsets(Cscore~., data=prostate[train,])
-test.mat = model.matrix(Cscore~., data=prostate[test,])
+# not useful
+regfit.best = regsubsets(Cscore~., data=prostate.less[train,])
+test.mat = model.matrix(Cscore~., data=prostate.less[test,])
 val.errors =rep (NA,7)
 for (i in 1:7){  
   coefi = coef (regfit.best ,id=i)   # throwing error saying object coefi not found
   pred =test.mat[,names(coefi)]%*% coefi
-  val.errors [i]= mean (( prostate$Cscore[test]- pred )^2)
+  val.errors [i]= mean (( prostate.less$Cscore[test]- pred )^2)
 }
 val.errors
 which.min(val.errors)
@@ -194,54 +215,35 @@ predict.regsubsets = function (object, newdata, id ,...) {
 
 
 # Best subset selection on full data
-regfit.best= regsubsets(Cscore~., data=prostate)
-coef(regfit.best ,1) # number of variables wa selected a/c to val.error result.
+regfit.best= regsubsets(Cscore~., data=prostate.less)
+coef(regfit.best ,2) # number of variables wa selected a/c to val.error result.
 
 #K fold cross validation
 k =10
 set.seed (1)
-folds = sample (1:k,nrow(prostate),replace=TRUE) # Should 1:k be changed to 2:K bcoz variables start from column 2
+folds = sample (1:k,nrow(prostate.less),replace=TRUE) # Should 1:k be changed to 2:K bcoz variables start from column 2
 cv.errors=matrix (NA ,k ,7, dimnames=list(NULL,paste(1:7)))
 
 for (j in 1:k){
-  best.fit = regsubsets(Cscore~., data=prostate[ folds !=j ,],)
+  best.fit = regsubsets(Cscore~., data=prostate.less[folds !=j ,],)
   for (i in 1:7) {
-     pred= predict (best.fit,prostate[ folds ==j,],id=i)
-     cv.errors [j,i]= mean((prostate$Cscore[ folds ==j]- pred)^2)}
+     pred= predict(best.fit,prostate.less[ folds ==j,],id=i)
+     cv.errors [j,i]= mean((prostate.less$Cscore[ folds ==j]- pred)^2)
+     }
 }
 mean.cv.errors = apply(cv.errors,2,mean)
-mean.cv.errors
+mean.cv.errors      # predicted cv error(test MSE) with 2 variables is 678.440
 par ( mfrow =c(1 ,1) )
 plot(mean.cv.errors ,type ='b')
-reg.best= regsubsets(Cscore~., data=prostate)
-coef(reg.best,5) # change variable number
+reg.best= regsubsets(Cscore~., data=prostate.less)
+coef(reg.best,2) # change variable number
 
 ##################################################
-train_fit <- lm(Cscore~., data=prostTrain)
-coef(train_fit)
-pred <- predict(train_fit, newdata=prostTest)
-mse <- mean((prostTest$Cscore - pred)^2)
-mse
-# I am not sure if the above method is correct or not for calculating the testMSE using linear effect terms only in the model.
-
-# Fit the best linear regression model removing age and lbph
-lm_model <- lm(Cscore ~ lcavol + lweight + svi + lcp + lpsa, data = prostate)
-# Examine the model summary
-summary(lm_model)
-install.packages(car)
+# Unnecessary part
+install.packages("car")
 library(car)
 vif (lm_model) # Most VIF's are low.
 
-par(mfrow =c(2 ,2) )
-plot(lm_model)
-plot( predict (lm_model), residuals (lm_model))
-plot( predict (lm_model), rstudent (lm_model)) # Observations whose studentized residuals are greater than 3 in absolute value are possible outliers.
-# plot to find high leverage points.
-plot( hatvalues (lm_model))
-
-# Best linear regression model:
-# After examining the data, the best linear regression model was determined to be:
-# Cscore =  lcavol + lweight + lbph + lcp + lpsa
 
 # Non-linear relationship of response and predictors can be studied to evaluate underlying assumptions.Residual plot can
 # be studied to evaluate any influential point and if found the model can be regenerated after removing the influential point
@@ -256,21 +258,13 @@ plot( hatvalues (lm_model))
 # Bootstrap does not rely on any of these assumptions.
 
 
-# Bootstrap SE estimates result from fitting the polynomial model for..?
-# Anova for this model with the lm_model..?
-
-
 
 # Q.3 Make an appropriate LASSO model, with the appropriate link and error function, and evaluate the prediction performance.
 #     Do you see evidence that over-learning is an issue?
-x=model.matrix(Cscore~.,prostate)[,-1]
-y=prostate$Cscore
-#compare x to the original file. 
-x[1:3,]
-Hitters[1:3,]
-
+x=model.matrix(Cscore~.,prostate.less)[,-1]
+y=prostate.less$Cscore
+library(glmnet)
 # LASSO model:
-
 #define series of values for lambda over large range, then perform ridge fit; alpha=0, lasso would be alpha=1
 grid=10^seq(10,-2,length=100) 
 #make test and training set
@@ -288,7 +282,6 @@ plot(lasso.mod)#the coefficents go to zero
 plot(lasso.mod,xvar="lambda",label=TRUE)#behaviour coef plotted against log lambda
 plot(lasso.mod,xvar="dev",label=TRUE)#behaviour coef plotted against percentage deviance explained
 #perform cross-validation for lambda, then measure performance and look at selected coefficients
-set.seed(1)
 cv.out=cv.glmnet(x[train,],y[train],alpha=1)
 plot(cv.out)
 bestlam=cv.out$lambda.min
@@ -299,20 +292,18 @@ out=glmnet(x,y,alpha=1,lambda=grid)
 lasso.coef=predict(out,type="coefficients",s=bestlam)[1:8,]
 lasso.coef
 lasso.coef[ lasso.coef !=0]
+# The prediction performance of the LASSO model was evaluated using mean squared error (MSE).
 
-# An appropriate LASSO model was generated using the glmnet package in R, with a .... error distribution and a ....link function. The lambda value was chosen using cross-validation, and the final model included the following variables:
-# (Intercept)      lcavol     lweight         svi         lcp        lpsa 
-# -5.682233   -3.614115   -7.232276   18.865307    5.365727   28.247719 
-# The prediction performance of the LASSO model was evaluated using mean squared error (MSE). 
 # Checking MSE for least square model (lm() can also be used instead of using lasso.pred and s=0)
-lasso.pred_leastsq= predict (lasso.mod ,s=0, newx=x[test ,])
+lasso.pred_leastsq= predict(lasso.mod ,s=0, newx=x[test ,])
 mean ((lasso.pred_leastsq -y.test)^2)
-# MSE using least square model is 835.16 while using lasso is 725.94 and this shows that overlearning (addiing more variables in the model) is an issue.
+# MSE using least square model is... while using lasso is...  and this shows that overlearning.....
+# No overlearning in Lasso prediction. t-test(Lasso with training and lasso with test)
 
 # Q.4 Look at the coefficient for “lcavol” in your LASSO model. Does this coefficient correspond
 #     to how well it can predict Cscore? Explain your observation.
 
-# Ans -The coefficient for lcavol is -3.614.
+# Ans -The coefficient for lcavol is -4.7189. 
 
 # Q.5 Fit your best model with appropriate non-linear effects. Report a comparison of performance to LASSO and your model 
 #     reported under question 2. Explain what you find, and indicate relevant issues or limitations of your analysis.
@@ -325,12 +316,43 @@ mean ((lasso.pred_leastsq -y.test)^2)
 
 
 
-# Examine the model summary
-summary(gam_model)
+#B-D. Fit a GAM, plot the results, evaluate the model. Are there non-linear effects?
+install.packages("gam")
+library(gam)
+# used same training and test dataset as used in Lasso
+x=model.matrix(Cscore~.,prostate.less)[,-1]
+y=prostate.less$Cscore
+set.seed(1)
+train=sample(1:nrow(x),nrow(x)/2)
+test=(-train)
+y.test=y[test]
+# removed "age" as observed from lasso fitting
+gam1 = gam(Cscore~svi+s(lcavol,4) +s(lweight,4)+ s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
+#ignore the gam "non-list contrasts" warning; it's a (harmless) bug
+par(mfrow=c(2,3))
+plot(gam1,se=TRUE,col="purple")#lweight,lbph,lcp mostly non-linear, Terminal non-linear effect has rel. high error so lweight has high error, lcavol and lpsa looks non-linear
+summary(gam1)# lweight,lbph,lcp seems to have non-linear effect, lpsa linear, not sure about lcavol
+predgam = predict(gam1, newdata=prostate.less[test,]) 
+msegam1 = mean((predgam-prostate.less[test,"Cscore"])^2)
+msegam1
+# Fitting GAM model again by keeping, lcavol,lpsa linear and rest non-linear
+gam2 = gam(Cscore~svi+s(lcavol,4)+s(lweight,4)+ s(lbph,4)+s(lcp,4)+lpsa,data=prostate.less,subset=train) 
+plot(gam2,se=TRUE,col="purple")#lpsa mostly linear, lbph and lweight has non-linear effect with high error, lcp looks non-linear, not sure about lcavol
+summary(gam2)#only lpsa seems to have linear effect
+predgam2 = predict(gam2, newdata=prostate.less[test,]) 
+msegam2 = mean((predgam2-prostate.less[test,"Cscore"])^2)#not identical to msegam1 for my train/test?
+msegam2
+anova(gam1,gam2)#simplification justified as expected.?
 
-# Do we need to standardize our data in case of Lasso (prof said it is done automatically in Lasso) or GAM?
-# Outlier is difficult fro predictive model and should be removed.
-# can we ise BIC,cp etc for measuring model efficiency for LAsso or GAM or linear model.
-# We can maybe use subset selection methods like forward, backward or hybrid for best linear regression model.
-# For GAM smoothing spline can be used with 4 degree polynomial. For qualitative variable no smoothing apline is used. Only
-# But if we are in Hypothesis testing scenario then we can see if outlier
+# used lm function 
+lm1 = lm(Cscore~svi+lcavol+lweight+lbph+lcp+lpsa,data=prostate.less,subset=train)
+predlm1= predict(lm1, newdata=prostate.less[test,]) 
+mselm1 = mean((predlm1-prostate.less[test,"Cscore"])^2)
+mselm1
+
+lm2 = lm(Cscore~svi+s(lcavol,4)+s(lweight,4)+ s(lbph,4)+s(lcp,4)+lpsa,data=prostate.less,subset=train)
+predlm2 = predict(lm2, newdata=prostate.less[test,]) 
+mselm2 = mean((predlm2-prostate.less[test,"Cscore"])^2) # worse or better than msegam2?
+mselm2
+
+# both lm1 and lm2 gives same mse?????
