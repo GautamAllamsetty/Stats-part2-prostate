@@ -1,6 +1,8 @@
 library(glmnet)#lasso and ridge
 library(ggplot2)
 library(reshape2)
+library(dplyr)
+library(tidyr)
 # Used R studio to open the prostate2(4).Rdata
 load("/Users/namrataxxx/Desktop/Second_semester_materials/Statistical_methods_for_Bioinformatics/Part_2/Assignment/prostate2(4).Rdata")
 dim(prostate)
@@ -61,9 +63,34 @@ ggplot(data = melt(cormat), aes(x=Var1, y=Var2, fill=value)) +
 pairs(prostate[, 2:8])
 
 # plot for Cscore vs each predictor(whether there is a relationship or not with response)
-# 
 
 
+# plot box plot for each variable to check mean and variance.
+
+# Create a boxplot for each predictor variable
+# Load the ggplot2 package
+library(ggplot2)
+
+prostate_tibble <- as_tibble(prostate)
+head(prostate_tibble)
+
+prostate_tibble_new <- prostate_tibble %>%
+  select(!svi) %>% 
+  pivot_longer(cols = c(lcavol, lweight, age, lbph, lcp, lpsa),
+               names_to = "Variable",
+               values_to = "Value")
+
+ggplot(prostate_tibble_new, aes(y = Value)) +
+  facet_wrap(~Variable, scales = "free")+ 
+  theme_classic()+
+  labs(title = "Box-plot of each predictor v/s response variable", 
+       x = "Predictor Variables", y = "Cscore") +
+  theme(plot.title = element_text(hjust = 0.5),
+       axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank()) +
+  geom_boxplot(outlier.shape = 1,  fill = "skyblue", width = 0.5) +
+  xlim(c(-1, 1))
 
 
 # conclusion - Most of the correlations are positive with very little negative correlation between
@@ -203,6 +230,7 @@ lm_model_full_best.summary$adj.r.squared
 
 # Removing the outlier:
 prostate.less <- prostate[-96,]
+prostate.less$svi <- as.factor(prostate.less$svi)
 dim(prostate.less)
 lm_model_less <- lm(Cscore ~.,data = prostate.less) 
 lm_model_less.summary<- summary(lm_model_less)
@@ -249,7 +277,7 @@ coef(regfit.less,2) # How many variables to take?????? a/c to Cp and adjr2 varia
                     # selected number of variables according to bic
 
 
-# Cross-validation: 
+# Cross-validation and best subset selection: 
 set.seed (1)
 train=sample (c(TRUE , FALSE ), nrow(prostate.less),rep =TRUE )
 test =(! train )
@@ -313,7 +341,6 @@ plot( predict (lm_reduced_best), residuals (lm_reduced_best))
 
 ##################################################
 # Unnecessary part
-install.packages("car")
 library(car)
 vif (lm_model) # Most VIF's are low.
 
@@ -361,7 +388,6 @@ cv.out=cv.glmnet(x[train,],y[train],alpha=1)
 plot(cv.out)
 bestlam=cv.out$lambda.min
 bestlam
-cv.out$
 lasso.pred=predict(lasso.mod,s=bestlam,newx=x[test,])
 mean((lasso.pred-y.test)^2)
 out=glmnet(x,y,alpha=1,lambda=grid)
@@ -415,7 +441,7 @@ plot(regfit.best, scale="bic")
 
 
 
-# removed "age" as observed from lasso fitting
+# Fitting full GAM model
 gam1 = gam(Cscore~svi+s(age,4)+s(lcavol,4) +s(lweight,4)+ s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 #ignore the gam "non-list contrasts" warning; it's a (harmless) bug
 par(mfrow=c(2,4))
@@ -441,6 +467,16 @@ predgam3 = predict(gam3, newdata=prostate.less[test,])
 msegam3 = mean((predgam3-prostate.less[test,"Cscore"])^2)#not identical to msegam1 for my train/test?
 msegam3
 anova(gam1,gam2,gam3)
+
+# Fitting GAM model again by removing lweight, age and lbph(as selected from best subset method)
+gam4 = gam(Cscore~svi+s(lcavol,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
+plot(gam4,se=TRUE,col="purple")#lpsa mostly linear, lbph and lweight has non-linear effect with high error, lcp looks non-linear, not sure about lcavol
+summary(gam4)#only lpsa seems to have linear effect
+predgam4 = predict(gam4, newdata=prostate.less[test,]) 
+msegam4 = mean((predgam4-prostate.less[test,"Cscore"])^2)#not identical to msegam1 for my train/test?
+msegam4
+
+# 
 
 # used lm function 
 lm1 = lm(Cscore~svi+lcavol+lweight+lbph+lcp+lpsa,data=prostate.less,subset=train)
