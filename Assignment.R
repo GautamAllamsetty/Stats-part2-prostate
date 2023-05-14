@@ -1,4 +1,8 @@
+library(glmnet)#lasso and ridge
+library(ggplot2)
+library(reshape2)
 # Used R studio to open the prostate2(4).Rdata
+load("/Users/namrataxxx/Desktop/Second_semester_materials/Statistical_methods_for_Bioinformatics/Part_2/Assignment/prostate2(4).Rdata")
 dim(prostate)
 sum (is.na(prostate$Cscore))
 # Predictor variable svi takes only two values (0 & 1) so we can convert it into qualitative variable.
@@ -44,6 +48,7 @@ svi <- as.factor(prostate$svi)
 
 # Examine the predictor variables
 var_summary <- summary(prostate[, 2:8])
+var_summary
 
 #are there correlations between variables?
 cormat =cor(prostate[, 2:8])
@@ -54,6 +59,12 @@ ggplot(data = melt(cormat), aes(x=Var1, y=Var2, fill=value)) +
                        midpoint = 0, limit = c(-1,1), space = "Lab", 
                        name="Pearson\nCorrelation")+ geom_tile()
 pairs(prostate[, 2:8])
+
+# plot for Cscore vs each predictor(whether there is a relationship or not with response)
+# 
+
+
+
 
 # conclusion - Most of the correlations are positive with very little negative correlation between
 # svi and lbph. There are only two variables,lbph and lcp which are not correlated. Among positive
@@ -115,47 +126,38 @@ pairs(prostate[, 2:8])
 #     underlying inferences with the model are violated? Evaluate the effect of any influential point, or outlier.
 # Full model to check for outlier:
 lm_model <- lm(Cscore ~., data = prostate)
-summary(lm_model)
-# Only lpsa is significant.
+summary(lm_model)$coef
 
+# Outlier effect:
 par(mfrow =c(2 ,2))
 plot(lm_model)
 plot( predict (lm_model), residuals (lm_model))
 plot( predict (lm_model), rstudent (lm_model)) # Observations whose studentized residuals are greater than 3 in absolute value are possible outliers.
 # plot to find high leverage points.
 plot( hatvalues (lm_model))
-
 # Conclusion - From the residual plot, observation number 96 is an outlier. So we removed it 
 # and then do the variable selection.
-# Removing the outlier:
-prostate.less <- prostate[-96,]
-prostate.less$svi<-as.factor(prostate.less$svi)
-lm_model_less <- lm(Cscore ~.,data = prostate.less)
-summary(lm_model_less)
-# Conclusion - Now lcp and lpsa both are significant.
 
-
-# Best subset selection:
-library(ISLR)
-dim(prostate.less)
+# Best subset selection on full dataset:
+dim(prostate)
 library(leaps)
-regfit.full = regsubsets (Cscore~.,data=prostate.less)
+regfit.full = regsubsets (Cscore~.,data=prostate)
 reg.summary=summary(regfit.full)
 reg.summary
 names(reg.summary)
-
+reg.summary$adjr2
 par (mfrow =c(2 ,2))
 plot(reg.summary$rss , xlab =" Number of Variables ", ylab =" RSS ",
-       type ="l")
+     type ="l")
 plot(reg.summary$adjr2 ,xlab =" Number of Variables ",
-       ylab =" Adjusted RSq ", type ="l")
+     ylab =" Adjusted RSq ", type ="l")
 
 which.max(reg.summary$adjr2) # 5 Variables
 plot(reg.summary$cp ,xlab =" Number of Variables ", ylab =" Cp",
      type='l')
 
-which.min(reg.summary$cp) # 4 Variables
-points (4, reg.summary$cp[4], col =" red ", cex =2, pch =20)
+which.min(reg.summary$cp) # 5 Variables
+points (5, reg.summary$cp[5], col =" red ", cex =2, pch =20)
 
 which.min (reg.summary$bic ) # 2 variables
 plot(reg.summary$bic , xlab =" Number of Variables ", ylab =" BIC ",
@@ -163,28 +165,88 @@ plot(reg.summary$bic , xlab =" Number of Variables ", ylab =" BIC ",
 points (2, reg.summary$bic [2], col =" red ",cex =2, pch =20)
 
 plot(regfit.full,scale ="r2")
-plot(regfit.full,scale="adjr2")
-plot(regfit.full,scale="Cp")
-plot(regfit.full,scale="bic")
-coef(regfit.full,2) # How many variables to take?????? a/c to Cp and adjr2 variable number is 5 and 4 and a/c to bic 2.
-                    # selected number of variables according to bic
-# Forward selection method:
-regfit.fwd =regsubsets(Cscore~., data= prostate.less,method ="forward")
-summary(regfit.fwd)
-plot(regfit.fwd,scale ="r2")
-plot(regfit.fwd,scale="adjr2")
-plot(regfit.fwd,scale="Cp")
-plot(regfit.fwd,scale="bic")
-coef(regfit.fwd,2) # selected number of variables according to bic
+plot(regfit.full,scale="adjr2") # age and lbph removed
+plot(regfit.full,scale="Cp")  # age and lbph removed
+plot(regfit.full,scale="bic") # only svi and lpsa kept
+coef(regfit.full,5) # no. of variables chosen according to cp and adjr2
+reg.summary$adjr2
+# adjr2 is 0.569
 
-# Backward selection method:
-regfit.bwd=regsubsets (Cscore~., data= prostate.less,method ="backward")
-summary(regfit.bwd)
-plot(regfit.bwd,scale ="r2")
-plot(regfit.bwd,scale="adjr2")
-plot(regfit.bwd,scale="Cp")
-plot(regfit.bwd,scale="bic")
-coef(regfit.bwd,2) # selected number of variables according to bic
+#K fold cross validation on full dataset
+k =10
+set.seed (1)
+folds= sample (1:k,nrow(prostate),replace=TRUE)
+cv.errors=matrix (NA ,k ,7, dimnames=list(NULL,paste(1:7)))
+
+for (j in 1:k){
+  best.fit = regsubsets(Cscore~., data=prostate[folds !=j ,],)
+  for (i in 1:7) {
+    pred= predict(best.fit,prostate[ folds ==j,],id=i)
+    cv.errors [j,i]= mean((prostate$Cscore[ folds ==j]- pred)^2)
+  }
+}
+mean.cv.errors = apply(cv.errors,2,mean)
+mean.cv.errors  # predicted cv error(test MSE) with 5 variables is 1525.874
+par ( mfrow =c(1 ,1) )
+plot(mean.cv.errors ,type ='b')
+reg.best= regsubsets(Cscore~., data=prostate)
+coef(reg.best,5)
+
+# After best subset selection(a/c to adjr2 and Cp) and K-fold validation on full dataset, 5 variables were selected
+# removing age and lbph.
+# Linear model after removing age and lbph:
+lm_model_full_best <- lm(Cscore ~ lcavol+lweight+svi+lcp+lpsa, data = prostate)
+lm_model_full_best.summary <- summary(lm_model_full_best)
+lm_model_full_best.summary$adj.r.squared
+# adjr2 is 0.569 (same as reg.summary)
+ 
+
+# Removing the outlier:
+prostate.less <- prostate[-96,]
+dim(prostate.less)
+lm_model_less <- lm(Cscore ~.,data = prostate.less) 
+lm_model_less.summary<- summary(lm_model_less)
+lm_model_less.summary
+lm_model_less.summary$adj.r.squared
+
+# After removing the outlier the adjr2 is 0.6346
+
+# Conclusion - Now lcp and lpsa both are significant.The SE of coefficients reduced
+# in the model with reduced dataset.
+
+# Best subset selection on reduced dataset:
+dim(prostate.less)
+library(leaps)
+regfit.less = regsubsets(Cscore~.,data=prostate.less)
+reg.summary.less=summary(regfit.less)
+reg.summary.less
+names(reg.summary.less)
+reg.summary.less$adjr2
+
+par (mfrow =c(2 ,2))
+plot(reg.summary.less$rss , xlab =" Number of Variables ", ylab =" RSS ",
+       type ="l")
+plot(reg.summary.less$adjr2 ,xlab =" Number of Variables ",
+       ylab =" Adjusted RSq ", type ="l")
+
+which.max(reg.summary.less$adjr2) # 5 Variables
+plot(reg.summary$cp ,xlab =" Number of Variables ", ylab =" Cp",
+     type='l')
+
+which.min(reg.summary.less$cp) # 4 Variables
+points (5, reg.summary.less$cp[4], col =" red ", cex =2, pch =20)
+
+which.min (reg.summary.less$bic ) # 2 variables
+plot(reg.summary.less$bic , xlab =" Number of Variables ", ylab =" BIC ",
+     type='l')
+points (2, reg.summary.less$bic [2], col =" red ",cex =2, pch =20)
+
+plot(regfit.less,scale ="r2")
+plot(regfit.less,scale="adjr2") # removed lweight and age
+plot(regfit.less,scale="Cp") # removed lweight, age and svi
+plot(regfit.less,scale="bic") # kept only lcp and lpsa
+coef(regfit.less,2) # How many variables to take?????? a/c to Cp and adjr2 variable number is 5 and 4 and a/c to bic 2.
+                    # selected number of variables according to bic
 
 
 # Cross-validation: 
@@ -214,14 +276,14 @@ predict.regsubsets = function (object, newdata, id ,...) {
   mat[,xvars]%*% coefi}
 
 
-# Best subset selection on full data
+# Best subset selection on full data with outlier removed
 regfit.best= regsubsets(Cscore~., data=prostate.less)
 coef(regfit.best ,2) # number of variables wa selected a/c to val.error result.
 
-#K fold cross validation
+#K fold cross validation on reduced dataset
 k =10
 set.seed (1)
-folds = sample (1:k,nrow(prostate.less),replace=TRUE) # Should 1:k be changed to 2:K bcoz variables start from column 2
+folds = sample (1:k,nrow(prostate.less),replace=TRUE)
 cv.errors=matrix (NA ,k ,7, dimnames=list(NULL,paste(1:7)))
 
 for (j in 1:k){
@@ -232,17 +294,30 @@ for (j in 1:k){
      }
 }
 mean.cv.errors = apply(cv.errors,2,mean)
-mean.cv.errors      # predicted cv error(test MSE) with 2 variables is 678.440
+mean.cv.errors  # predicted cv error(test MSE) with 2 variables is 678.440
 par ( mfrow =c(1 ,1) )
 plot(mean.cv.errors ,type ='b')
 reg.best= regsubsets(Cscore~., data=prostate.less)
-coef(reg.best,2) # change variable number
+coef(reg.best,2) 
+
+# After best subset selection in reduced dataset, a/c to adjr2 5 variables and a/c to cp
+# value 4 variables are important. A/c to K-fold only 2 variables are important(lcp and lpsa)
+plot(Cscore~lcp, data=prostate.less)
+plot(Cscore~lbph, data=prostate.less)
+lm_reduced_best <- lm(Cscore~lcp+lbph, data=prostate.less)
+summary(lm_reduced_best)
+par(mfrow =c(2 ,2))
+plot(lm_reduced_best)
+plot( predict (lm_reduced_best), residuals (lm_reduced_best))
+
 
 ##################################################
 # Unnecessary part
 install.packages("car")
 library(car)
 vif (lm_model) # Most VIF's are low.
+
+# Check for non-linearity (residual plot), shapiro test for normality assumption. check for homoscedasity of predictor variable, multicollinearity,
 
 
 # Non-linear relationship of response and predictors can be studied to evaluate underlying assumptions.Residual plot can
@@ -286,6 +361,7 @@ cv.out=cv.glmnet(x[train,],y[train],alpha=1)
 plot(cv.out)
 bestlam=cv.out$lambda.min
 bestlam
+cv.out$
 lasso.pred=predict(lasso.mod,s=bestlam,newx=x[test,])
 mean((lasso.pred-y.test)^2)
 out=glmnet(x,y,alpha=1,lambda=grid)
@@ -317,7 +393,7 @@ mean ((lasso.pred_leastsq -y.test)^2)
 
 
 #B-D. Fit a GAM, plot the results, evaluate the model. Are there non-linear effects?
-install.packages("gam")
+#
 library(gam)
 # used same training and test dataset as used in Lasso
 x=model.matrix(Cscore~.,prostate.less)[,-1]
@@ -326,23 +402,45 @@ set.seed(1)
 train=sample(1:nrow(x),nrow(x)/2)
 test=(-train)
 y.test=y[test]
+
+regfit.fwd=regsubsets(Cscore~.,prostate.less[train,],method="forward")
+summary(regfit.fwd)
+plot(summary(regfit.fwd)$bic,type="b",ylab="BIC")#we select 4 variables
+plot(regfit.fwd, scale="bic")
+
+regfit.best=regsubsets(Cscore~.,prostate.less[train,])
+summary(regfit.best)
+plot(summary(regfit.fwd)$bic,type="b",ylab="BIC")#we select 4 variables
+plot(regfit.best, scale="bic")
+
+
+
 # removed "age" as observed from lasso fitting
-gam1 = gam(Cscore~svi+s(lcavol,4) +s(lweight,4)+ s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
+gam1 = gam(Cscore~svi+s(age,4)+s(lcavol,4) +s(lweight,4)+ s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 #ignore the gam "non-list contrasts" warning; it's a (harmless) bug
-par(mfrow=c(2,3))
+par(mfrow=c(2,4))
 plot(gam1,se=TRUE,col="purple")#lweight,lbph,lcp mostly non-linear, Terminal non-linear effect has rel. high error so lweight has high error, lcavol and lpsa looks non-linear
 summary(gam1)# lweight,lbph,lcp seems to have non-linear effect, lpsa linear, not sure about lcavol
 predgam = predict(gam1, newdata=prostate.less[test,]) 
 msegam1 = mean((predgam-prostate.less[test,"Cscore"])^2)
 msegam1
-# Fitting GAM model again by keeping, lcavol,lpsa linear and rest non-linear
-gam2 = gam(Cscore~svi+s(lcavol,4)+s(lweight,4)+ s(lbph,4)+s(lcp,4)+lpsa,data=prostate.less,subset=train) 
+# Fitting GAM model again by removing age
+gam2 = gam(Cscore~svi+s(lcavol,4)+s(lweight,4)+s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 plot(gam2,se=TRUE,col="purple")#lpsa mostly linear, lbph and lweight has non-linear effect with high error, lcp looks non-linear, not sure about lcavol
 summary(gam2)#only lpsa seems to have linear effect
 predgam2 = predict(gam2, newdata=prostate.less[test,]) 
 msegam2 = mean((predgam2-prostate.less[test,"Cscore"])^2)#not identical to msegam1 for my train/test?
 msegam2
 anova(gam1,gam2)#simplification justified as expected.?
+
+# Fitting GAM model again by removing age and making lcavol and lweight linear
+gam3 = gam(Cscore~svi+lcavol+lweight+ s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
+plot(gam3,se=TRUE,col="purple")#lpsa mostly linear, lbph and lweight has non-linear effect with high error, lcp looks non-linear, not sure about lcavol
+summary(gam3)#only lpsa seems to have linear effect
+predgam3 = predict(gam3, newdata=prostate.less[test,]) 
+msegam3 = mean((predgam3-prostate.less[test,"Cscore"])^2)#not identical to msegam1 for my train/test?
+msegam3
+anova(gam1,gam2,gam3)
 
 # used lm function 
 lm1 = lm(Cscore~svi+lcavol+lweight+lbph+lcp+lpsa,data=prostate.less,subset=train)
