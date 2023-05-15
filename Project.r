@@ -25,6 +25,7 @@ cormat =cor(prostate[, 2:8])
 cormat
 
 # CORRELATION MATRIX
+par (mfrow =c(1 ,2))
 reduced <- prostate[, -1]
 reduced$svi <- as.numeric(reduced$svi)
 cormat <- round(cor(reduced), 2)
@@ -34,6 +35,7 @@ ggcorrplot(cormat, hc.order = TRUE, type = "lower",
 
 
 # CSCORE vs EACH PREDICTOR
+
 prostate_tibble <- as_tibble(prostate)
 head(prostate_tibble)
 
@@ -55,7 +57,7 @@ ggplot(prostate_tibble_new, aes(x = Value, y = Cscore)) +
 ggplot(prostate_tibble_new, aes(y = Value)) +
   facet_wrap(~Variable, scales = "free")+ 
   theme_bw()+
-  labs(title = "Box-plot of each predictor v/s response variable", 
+  labs(title = "Boxplot of each predictor vs response variable", 
        x = "Predictor Variables", y = "Cscore") +
   theme(plot.title = element_text(hjust = 0.5),
         axis.title.x = element_blank(),
@@ -243,6 +245,7 @@ y.test=y[test]
 
 lasso.mod=glmnet(x[train,],y[train],alpha=1,lambda=grid)
 plot(lasso.mod)
+par(mfrow=c(1,3))
 plot(lasso.mod,xvar="lambda",label=TRUE)
 plot(lasso.mod,xvar="dev",label=TRUE)
 cv.out=cv.glmnet(x[train,],y[train],alpha=1)
@@ -308,8 +311,6 @@ anova(gam1,gam2)
 
 #FITTING GAM MODEL BY REMOVING AGE,LWEIGHT AND LBPH (A/C TO BEST SUBSET & FORWARD SELECTION) AND EVERY OTHER PREDICTOR AS NON-LINEAR TERM
 gam3 = gam(Cscore~svi+s(lcavol,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train)
-par(mfrow=c(2,4))
-plot(gam3,se=TRUE,col="purple")
 summary(gam3)
 predgam3 = predict(gam3, newdata=prostate.less[test,]) 
 msegam3 = mean((predgam3-prostate.less[test,"Cscore"])^2)
@@ -319,7 +320,16 @@ msegam3
 #FITTING GAM MODEL BY REMOVING AGE,LWEIGHT AND LBPH (A/C TO BEST SUBSET & FORWARD SELECTION) & KEEPING LCAVOL LINEAR
 gam4 = gam(Cscore~svi+lcavol+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
+plot(gam3,se=TRUE,col="purple")
+mtext("Final model with lcavol, lcp, svi and lpsa predictors", 
+      side = 3, 
+      line = -2,
+      outer = TRUE)
 plot(gam4,se=TRUE,col="purple")
+mtext("Final model with linear lcavol predictor", 
+      side = 3, 
+      line = -21,
+      outer = TRUE)
 summary(gam4)
 predgam4 = predict(gam4, newdata=prostate.less[test,]) 
 msegam4 = mean((predgam4-prostate.less[test,"Cscore"])^2)
