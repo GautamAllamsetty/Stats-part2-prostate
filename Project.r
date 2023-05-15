@@ -211,11 +211,17 @@ mean((lin_model$fitted.values - prostate.less$Cscore)^2)
 ##### OBSERVING LINEAR MODEL ASSUMPTIONS ##########################
 
 ## CHECKING NORMALITY OF RESIDUALS
+par(mfrow=c(1,2))
 shapiro.test(lin_model$residuals)
 hist(lin_model$residuals, 
      main = "Histogram of residuals", 
      xlab = "Residuals",
      col = "skyblue")
+
+## CHECKING NORMALITY OF RESIDUALS
+
+plot(lin_model, 2)
+
 
 ## CHECKING HOMOSCEDASTICITY
 
@@ -224,11 +230,6 @@ plot(fitted(lin_model), rstandard(lin_model))
 ## CHECKING LINEARITY OF RESIDUALS
 
 plot(lin_model, 1)
-
-## CHECKING NORMALITY OF RESIDUALS
-
-plot(lin_model, 2)
-
 
 # Q.3 Make an appropriate LASSO model, with the appropriate link and error function, and evaluate the prediction performance.
 #     Do you see evidence that over-learning is an issue?
