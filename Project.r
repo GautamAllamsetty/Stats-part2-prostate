@@ -218,8 +218,6 @@ hist(lin_model$residuals,
      xlab = "Residuals",
      col = "skyblue")
 
-## CHECKING NORMALITY OF RESIDUALS
-
 plot(lin_model, 2)
 
 
@@ -276,14 +274,14 @@ train=sample(1:nrow(x),nrow(x)/2)
 test=(-train)
 y.test=y[test]
 
-# FORWARD SELECTION ON REDUCED DATASET
+# FORWARD SELECTION ON REDUCED DATASET FOR GAM
 regfit.fwd=regsubsets(Cscore~.,prostate.less[train,],method="forward")
 summary(regfit.fwd)
 plot(summary(regfit.fwd)$bic,type="b",ylab="BIC")#we select 4 variables
 plot(regfit.fwd, scale="bic")
 coef( regfit.fwd ,4)
 
-# BEST SUBSET SELECTION ON REDUCED DATASET
+# BEST SUBSET SELECTION ON REDUCED DATASET FOR GAM
 regfit.best=regsubsets(Cscore~.,prostate.less[train,])
 summary(regfit.best)
 plot(summary(regfit.fwd)$bic,type="b",ylab="BIC")#we select 4 variables
