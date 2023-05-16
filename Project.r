@@ -201,8 +201,10 @@ coef(reg.best,2)
 # BEST LINEAR MODEL ON REDUCED DATASET KEEPING ONLY LCP AND LPSA (K-FOLD AND BEST SUBSET SELECTION)
 lin_model <- lm(Cscore ~ lcp + lpsa, data = prostate.less)
 lin_model_best.summary <- summary(lin_model)
-lin_model_best.summary 
-mean((lin_model$fitted.values - prostate.less$Cscore)^2)
+lin_model_best.summary
+# MSE FROM BEST LINEAR MODEL
+lin_model_mse <- mean((lin_model$fitted.values - prostate.less$Cscore)^2)
+lin_model_mse
 
 ##### OBSERVING LINEAR MODEL ASSUMPTIONS ##########################
 
@@ -246,6 +248,7 @@ cv.out=cv.glmnet(x[train,],y[train],alpha=1)
 plot(cv.out)
 bestlam=cv.out$lambda.min
 bestlam
+# MSE FROM LASSO MODEL
 lasso.pred=predict(lasso.mod,s=bestlam,newx=x[test,])
 mean((lasso.pred-y.test)^2)
 out=glmnet(x,y,alpha=1,lambda=grid)
@@ -303,7 +306,8 @@ mtext("Final model with linear lcavol predictor",
       line = -21,
       outer = TRUE)
 summary(gam4)
-predgam4 = predict(gam4, newdata=prostate.less[test,]) 
+predgam4 = predict(gam4, newdata=prostate.less[test,])
+# MSE FROM BEST GAM
 msegam4 = mean((predgam4-prostate.less[test,"Cscore"])^2)
 msegam4
 anova(gam3,gam4)
