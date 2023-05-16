@@ -288,7 +288,7 @@ predgam3 = predict(gam3, newdata=prostate.less[test,])
 msegam3 = mean((predgam3-prostate.less[test,"Cscore"])^2)
 msegam3 
 
-### FINAL BEST GAM ####
+##################### FINAL BEST GAM ##########################################
 #FITTING GAM BY REMOVING AGE,LWEIGHT AND LBPH (A/C TO BEST SUBSET & FORWARD SELECTION) & KEEPING LCAVOL LINEAR
 gam4 = gam(Cscore~svi+lcavol+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
@@ -370,12 +370,21 @@ msegam8
 
 
 #############################################################################
-# FITTING GAM WITH AGE, LCAVOL AS LINEAR & REST NON-LINEAR & REMOVED AGE
+# FITTING GAM AFTER REMOVING LWEIGHT & KEEPING AGE, LCAVOL AS LINEAR & REST NON-LINEAR 
 gam9 = gam(Cscore~svi+age+lcavol+s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
 plot(gam9,se=TRUE,col="purple")
 summary(gam9)
 predgam9 = predict(gam9, newdata=prostate.less[test,]) 
 msegam9 = mean((predgam9-prostate.less[test,"Cscore"])^2)
-msegam9 # 445.109, Deviance 6657.103 and AIC 407
-mean((gam9$fitted.values - prostate.less[train, ]$Cscore)^2)
+msegam9 
+
+# FITTING GAM AFTER REMOVING LWEIGHT & LBPH & KEEPING AGE, LCAVOL AS LINEAR & REST NON-LINEAR 
+gam10 = gam(Cscore~svi+age+lcavol+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
+par(mfrow=c(2,4))
+plot(gam10,se=TRUE,col="purple")
+summary(gam10)
+predgam10 = predict(gam10, newdata=prostate.less[test,]) 
+msegam10 = mean((predgam10-prostate.less[test,"Cscore"])^2)
+msegam10
+anova(gam9,gam10)
