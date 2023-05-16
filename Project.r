@@ -33,9 +33,7 @@ ggcorrplot(cormat, hc.order = TRUE, type = "lower",
            lab = TRUE) +
   theme(panel.grid.major = element_blank())
 
-
 # CSCORE vs EACH PREDICTOR
-
 prostate_tibble <- as_tibble(prostate)
 head(prostate_tibble)
 
@@ -44,7 +42,6 @@ prostate_tibble_new <- prostate_tibble %>%
   pivot_longer(cols = c(lcavol, lweight, age, lbph, lcp, lpsa),
                names_to = "Variable",
                values_to = "Value")
-
 ggplot(prostate_tibble_new, aes(x = Value, y = Cscore)) +
   geom_point(color = "firebrick") +
   ggtitle("C-score vs. individual predictors") +
@@ -53,7 +50,6 @@ ggplot(prostate_tibble_new, aes(x = Value, y = Cscore)) +
   theme_bw()
 
 # BOX PLOT OF EACH PREDICTOR.
-
 ggplot(prostate_tibble_new, aes(y = Value)) +
   facet_wrap(~Variable, scales = "free")+ 
   theme_bw()+
@@ -220,7 +216,6 @@ hist(lin_model$residuals,
 
 plot(lin_model, 2)
 
-
 ## CHECKING HOMOSCEDASTICITY
 
 plot(fitted(lin_model), rstandard(lin_model))
@@ -260,13 +255,11 @@ lasso.coef[ lasso.coef !=0]
 
 # Q.4 Look at the coefficient for “lcavol” in your LASSO model. Does this coefficient correspond
 #     to how well it can predict Cscore? Explain your observation.
-lasso.coef
+lasso.coef[2]
 # Ans -The coefficient for lcavol is -4.7189. 
-
 
 # Q.5 Fit your best model with appropriate non-linear effects. Report a comparison of performance to LASSO and your model 
 #     reported under question 2. Explain what you find, and indicate relevant issues or limitations of your analysis.
-
 x=model.matrix(Cscore~.,prostate.less)[,-1]
 y=prostate.less$Cscore
 set.seed(1)
@@ -288,35 +281,15 @@ plot(summary(regfit.fwd)$bic,type="b",ylab="BIC")#we select 4 variables
 plot(regfit.best, scale="bic")
 coef( regfit.best ,4)
 
-
-# FITTING FULL GAM MODEL
-gam1 = gam(Cscore~svi+s(age,4)+s(lcavol,4) +s(lweight,4)+ s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
-par(mfrow=c(2,4))
-plot(gam1,se=TRUE,col="purple")
-summary(gam1)
-predgam1 = predict(gam1, newdata=prostate.less[test,]) 
-msegam1 = mean((predgam1-prostate.less[test,"Cscore"])^2)
-msegam1  
-
-# FITTING GAM MODEL BY REMOVING AGE (A/C TO LASSO) AND EVERY OTHER PREDICTOR AS NON-LINEAR TERM
-gam2 = gam(Cscore~svi+s(lcavol,4)+s(lweight,4)+s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
-par(mfrow=c(2,4))
-plot(gam2,se=TRUE,col="purple")
-summary(gam2)
-predgam2 = predict(gam2, newdata=prostate.less[test,]) 
-msegam2 = mean((predgam2-prostate.less[test,"Cscore"])^2) 
-msegam2 
-anova(gam1,gam2)
-
-#FITTING GAM MODEL BY REMOVING AGE,LWEIGHT AND LBPH (A/C TO BEST SUBSET & FORWARD SELECTION) AND EVERY OTHER PREDICTOR AS NON-LINEAR TERM
+#FITTING GAM BY REMOVING AGE,LWEIGHT AND LBPH (A/C TO BEST SUBSET & FORWARD SELECTION) AND EVERY OTHER PREDICTOR AS NON-LINEAR TERM
 gam3 = gam(Cscore~svi+s(lcavol,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train)
 summary(gam3)
 predgam3 = predict(gam3, newdata=prostate.less[test,]) 
 msegam3 = mean((predgam3-prostate.less[test,"Cscore"])^2)
 msegam3 
 
-###############################################################################################
-#FITTING GAM MODEL BY REMOVING AGE,LWEIGHT AND LBPH (A/C TO BEST SUBSET & FORWARD SELECTION) & KEEPING LCAVOL LINEAR
+### FINAL BEST GAM ####
+#FITTING GAM BY REMOVING AGE,LWEIGHT AND LBPH (A/C TO BEST SUBSET & FORWARD SELECTION) & KEEPING LCAVOL LINEAR
 gam4 = gam(Cscore~svi+lcavol+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
 plot(gam3,se=TRUE,col="purple")
@@ -335,8 +308,29 @@ msegam4 = mean((predgam4-prostate.less[test,"Cscore"])^2)
 msegam4
 anova(gam3,gam4)
 
+###############################################################################################
+# COMPARING DIFFERENT GAMs WITH VARIOUS COMBINATION OF PREDICTORS(BOTH LINEAR AND NON-LINEAR TERMS)
 
-# FITTING GAM MODEL WITH ONLY LCP AND LPSA AS NON-LINEAR 
+# FITTING FULL GAM 
+gam1 = gam(Cscore~svi+s(age,4)+s(lcavol,4) +s(lweight,4)+ s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
+par(mfrow=c(2,4))
+plot(gam1,se=TRUE,col="purple")
+summary(gam1)
+predgam1 = predict(gam1, newdata=prostate.less[test,]) 
+msegam1 = mean((predgam1-prostate.less[test,"Cscore"])^2)
+msegam1  
+
+# FITTING GAM BY REMOVING AGE (A/C TO LASSO) AND EVERY OTHER PREDICTOR AS NON-LINEAR TERM
+gam2 = gam(Cscore~svi+s(lcavol,4)+s(lweight,4)+s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
+par(mfrow=c(2,4))
+plot(gam2,se=TRUE,col="purple")
+summary(gam2)
+predgam2 = predict(gam2, newdata=prostate.less[test,]) 
+msegam2 = mean((predgam2-prostate.less[test,"Cscore"])^2) 
+msegam2 
+anova(gam1,gam2)
+
+# FITTING GAM WITH ONLY LCP AND LPSA AS NON-LINEAR 
 gam5 = gam(Cscore~s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
 plot(gam5,se=TRUE,col="purple")
@@ -346,7 +340,7 @@ msegam5 = mean((predgam5-prostate.less[test,"Cscore"])^2)
 msegam5 
 anova(gam5,gam4)
 
-# FITTING GAM MODEL WITH AGE AS LINEAR & REST NON-LINEAR
+# FITTING GAM WITH AGE AS LINEAR & REST NON-LINEAR
 gam6 = gam(Cscore~svi+age+s(lcavol,4)+s(lweight,4)+s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
 plot(gam6,se=TRUE,col="purple")
@@ -355,7 +349,7 @@ predgam6 = predict(gam6, newdata=prostate.less[test,])
 msegam6 = mean((predgam6-prostate.less[test,"Cscore"])^2)
 msegam6 
 
-# FITTING GAM MODEL WITH AGE & LCAVOL AS LINEAR & REST NON-LINEAR
+# FITTING GAM WITH AGE & LCAVOL AS LINEAR & REST NON-LINEAR
 gam7 = gam(Cscore~svi+age+lcavol+s(lweight,4)+s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
 plot(gam7,se=TRUE,col="purple")
@@ -365,7 +359,7 @@ msegam7 = mean((predgam7-prostate.less[test,"Cscore"])^2)
 msegam7
 
 
-# FITTING GAM MODEL WITH AGE, LCAVOL & LWEIGHT AS LINEAR & REST NON-LINEAR
+# FITTING GAM WITH AGE, LCAVOL & LWEIGHT AS LINEAR & REST NON-LINEAR
 gam8 = gam(Cscore~svi+age+lcavol+lweight+s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
 plot(gam8,se=TRUE,col="purple")
@@ -376,7 +370,7 @@ msegam8
 
 
 #############################################################################
-# FITTING GAM MODEL WITH AGE, LCAVOL AS LINEAR & REST NON-LINEAR & REMOVED AGE
+# FITTING GAM WITH AGE, LCAVOL AS LINEAR & REST NON-LINEAR & REMOVED AGE
 gam9 = gam(Cscore~svi+age+lcavol+s(lbph,4)+s(lcp,4)+s(lpsa,4),data=prostate.less,subset=train) 
 par(mfrow=c(2,4))
 plot(gam9,se=TRUE,col="purple")
